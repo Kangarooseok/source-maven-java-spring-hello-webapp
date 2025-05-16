@@ -24,7 +24,7 @@ pipeline {
         deploy adapters: [
           tomcat9(credentialsId: 'tomcat-manager', url: 'http://192.168.56.102:8080')
         ],
-        war: 'target/your-app.war'
+        war: 'target/hello-world.war'
       }
     }
   }
