@@ -12,6 +12,12 @@ spec:
         - sleep
       args:
         - infinity
+    - name: git
+      image: alpine/git
+      command:
+        - sleep
+      args:
+        - infinity
     - name: kaniko
       image: gcr.io/kaniko-project/executor:debug
       command:
@@ -62,11 +68,40 @@ spec:
         container('kaniko') {
           sh '''
             /kaniko/executor \
+              --dockerfile=Dockerfile \
               --context=dir://$WORKSPACE \
-              --dockerfile=$WORKSPACE/Dockerfile \
               --destination=suggiss/jenkins-kaniko:$BUILD_NUMBER \
               --destination=suggiss/jenkins-kaniko:latest
           '''
+        }
+      }
+    }
+
+    stage('Update K8s Manifests & Push') {
+      environment {
+        githubUser = 'Minseok Kang'       // ex: Ryan Jang
+        githubEmail = 'kms860926@gmail.com'            // ex: myaccount@example.com
+        githubId = 'Kangarooseok'            // ex: myaccount
+        githubRepo = 'jenkins-kubernetes'         // ex: jenkins-kube-deploy
+        githubURL = 'https://github.com/Kangarooseok/jenkins-kubernetes.git'
+        dockerhubId = 'suggiss'     // ex: myaccount
+        dockerhubRepo = 'jenkins-kaniko'  // ex: hello-world
+      }
+      steps {
+        container('git') {
+          git branch: 'main', credentialsId: 'github-credential', url: "${githubURL}"
+
+          sh "git config --global --add safe.directory ${env.WORKSPACE}"
+          sh "git config --global user.name '${githubUser}'"
+          sh "git config --global user.email '${githubEmail}'"
+
+          sh "sed -i 's|image:.*|image: ${dockerhubId}/${dockerhubRepo}:${BUILD_NUMBER}|' deployment.yaml"
+          sh "git add deployment.yaml"
+          sh "git commit -m 'Jenkins Build Number - ${BUILD_NUMBER}'"
+
+          withCredentials([usernamePassword(credentialsId: 'github-credential', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh "git push https://${GIT_USER}:${GIT_PASS}@github.com/${githubId}/${githubRepo}.git HEAD:main"
+          }
         }
       }
     }
