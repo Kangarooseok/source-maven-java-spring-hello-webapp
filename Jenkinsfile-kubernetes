@@ -109,12 +109,17 @@ spec:
       steps {
         container('curl') {
           withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
-            sh """
-              curl -X POST -H "Content-type: application/json" \
-              --data '{
-                "text": ":rocket: Jenkins 빌드 및 배포 완료!\\n*Build Number:* #${BUILD_NUMBER}\\n*Repository:* ${githubRepo}\\n*Image:* ${dockerhubId}/${dockerhubRepo}:${BUILD_NUMBER}"
-              }' $SLACK_WEBHOOK
-            """
+            script {
+              def payload = [
+                text: ":rocket: Jenkins 빌드 및 배포 완료!\n*Build Number:* #${BUILD_NUMBER}\n*Repository:* ${githubRepo}\n*Image:* ${dockerhubId}/${dockerhubRepo}:${BUILD_NUMBER}"
+              ]
+              writeJSON file: 'payload.json', json: payload
+              sh '''
+                curl -s -o /dev/null -w "%{http_code}" \
+                  -X POST -H "Content-type: application/json" \
+                  --data @payload.json $SLACK_WEBHOOK
+              '''
+            }
           }
         }
       }
