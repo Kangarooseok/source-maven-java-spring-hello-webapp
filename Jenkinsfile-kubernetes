@@ -110,10 +110,10 @@ spec:
         container('curl') {
           withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
             script {
-              def payload = [
-                text: ":rocket: Jenkins 빌드 및 배포 완료!\n*Build Number:* #${BUILD_NUMBER}\n*Repository:* ${githubRepo}\n*Image:* ${dockerhubId}/${dockerhubRepo}:${BUILD_NUMBER}"
-              ]
-              writeJSON file: 'payload.json', json: payload
+              def payload = """{
+                "text": ":rocket: Jenkins 빌드 및 배포 완료!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
+              }"""
+              writeFile file: 'payload.json', text: payload
               sh '''
                 curl -s -o /dev/null -w "%{http_code}" \
                   -X POST -H "Content-type: application/json" \
