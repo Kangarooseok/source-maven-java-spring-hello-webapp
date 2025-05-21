@@ -114,10 +114,15 @@ spec:
                 "text": ":rocket: Jenkins 빌드 및 배포 완료!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
               }"""
               writeFile file: 'payload.json', text: payload
-              sh '''
-                curl -s -o /dev/null -w "%{http_code}" \
-                  -X POST -H "Content-type: application/json" \
-                  --data @payload.json $SLACK_WEBHOOK
+
+              // ✅ 디버깅용 Webhook 길이 출력
+              echo "Webhook env var length: ${SLACK_WEBHOOK.length()}"
+
+              // ✅ 실제 Slack 메시지 전송
+              sh label: 'Send Slack message', script: '''
+                set -e
+                curl -X POST -H "Content-type: application/json" \
+                  --data @payload.json "$SLACK_WEBHOOK"
               '''
             }
           }
