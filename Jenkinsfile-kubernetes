@@ -36,6 +36,11 @@ spec:
     }
   }
 
+  // ✅ Git 저장소 자동 감지 트리거 설정 (2분 간격 polling)
+  triggers {
+    pollSCM('H/2 * * * *')
+  }
+
   environment {
     githubUser = 'Minseok Kang'
     githubEmail = 'kms860926@gmail.com'
@@ -114,10 +119,8 @@ spec:
                 "text": ":rocket: Jenkins 빌드 및 배포 완료!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
               }"""
               echo "Webhook env var length: ${SLACK_WEBHOOK.length()}"
-              echo "Slack payload content:\n${payload}"
               writeFile file: 'payload.json', text: payload
 
-              // 🔍 디버깅용 curl -v + 상태 출력
               sh label: 'Send Slack message', script: '''
                 set -xe
                 apt update && apt install -y curl
