@@ -79,13 +79,13 @@ spec:
 
     stage('Update K8s Manifests & Push') {
       environment {
-        githubUser = 'Minseok Kang'       // ex: Ryan Jang
-        githubEmail = 'kms860926@gmail.com'            // ex: myaccount@example.com
-        githubId = 'Kangarooseok'            // ex: myaccount
-        githubRepo = 'jenkins-kubernetes'         // ex: jenkins-kube-deploy
+        githubUser = 'Minseok Kang'
+        githubEmail = 'kms860926@gmail.com'
+        githubId = 'Kangarooseok'
+        githubRepo = 'jenkins-kubernetes'
         githubURL = 'https://github.com/Kangarooseok/jenkins-kubernetes.git'
-        dockerhubId = 'suggiss'     // ex: myaccount
-        dockerhubRepo = 'jenkins-kaniko'  // ex: hello-world
+        dockerhubId = 'suggiss'
+        dockerhubRepo = 'jenkins-kaniko'
       }
       steps {
         container('git') {
@@ -101,6 +101,24 @@ spec:
 
           withCredentials([usernamePassword(credentialsId: 'github-credential', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
             sh "git push https://${GIT_USER}:${GIT_PASS}@github.com/${githubId}/${githubRepo}.git HEAD:main"
+          }
+        }
+      }
+    }
+
+    stage('Notify Slack') {
+      steps {
+        container('git') {
+          withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+            script {
+              def payload = """{
+                "text": ":rocket: *Jenkins 빌드 및 배포 완료!*\n*Build Number:* #${env.BUILD_NUMBER}\n*Repository:* ${env.githubRepo}\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
+              }"""
+              sh """
+                curl -X POST -H 'Content-type: application/json' \
+                --data '${payload}' $SLACK_WEBHOOK
+              """
+            }
           }
         }
       }
