@@ -22,7 +22,7 @@ spec:
         - name: registry-credentials
           mountPath: /kaniko/.docker
     - name: curl
-      image: curlimages/curl:latest
+      image: debian:bullseye
       command: ["sleep"]
       args: ["infinity"]
   volumes:
@@ -113,15 +113,15 @@ spec:
               def payload = """{
                 "text": ":rocket: Jenkins 빌드 및 배포 완료!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
               }"""
+              echo "Webhook env var length: ${SLACK_WEBHOOK.length()}"
+              echo "Slack payload content:\n${payload}"
               writeFile file: 'payload.json', text: payload
 
-              // ✅ 디버깅용 Webhook 길이 출력
-              echo "Webhook env var length: ${SLACK_WEBHOOK.length()}"
-
-              // ✅ 실제 Slack 메시지 전송
+              // 🔍 디버깅용 curl -v + 상태 출력
               sh label: 'Send Slack message', script: '''
-                set -e
-                curl -X POST -H "Content-type: application/json" \
+                set -xe
+                apt update && apt install -y curl
+                curl -v -X POST -H "Content-type: application/json" \
                   --data @payload.json "$SLACK_WEBHOOK"
               '''
             }
