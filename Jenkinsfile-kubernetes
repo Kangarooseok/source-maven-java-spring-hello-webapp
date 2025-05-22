@@ -36,11 +36,6 @@ spec:
     }
   }
 
-  // ✅ Git 저장소 자동 감지 트리거 설정 (2분 간격 polling)
-  triggers {
-    pollSCM('H/2 * * * *')
-  }
-
   environment {
     githubUser = 'Minseok Kang'
     githubEmail = 'kms860926@gmail.com'
