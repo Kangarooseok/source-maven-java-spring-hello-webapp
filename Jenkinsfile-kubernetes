@@ -41,10 +41,9 @@ spec:
     githubEmail = 'kms860926@gmail.com'
     githubId = 'Kangarooseok'
     githubRepo = 'jenkins-kubernetes'
-    githubURL = "https://github.com/${githubId}/${githubRepo}.git"
+    githubURL = 'https://github.com/Kangarooseok/jenkins-kubernetes.git'
     dockerhubId = 'suggiss'
     dockerhubRepo = 'jenkins-kaniko'
-    imageTag = "multi-${BUILD_NUMBER}" // 🔁 고유 태그 부여
   }
 
   stages {
@@ -72,60 +71,64 @@ spec:
       }
     }
 
-    stage('Build & Push Docker Image') {
+    stage('Build & Tag & Push Docker Image') {
       steps {
         container('kaniko') {
           sh '''
             /kaniko/executor \
               --dockerfile=Dockerfile \
               --context=dir://$WORKSPACE \
-              --destination=${dockerhubId}/${dockerhubRepo}:${imageTag} \
-              --destination=${dockerhubId}/${dockerhubRepo}:latest
+              --destination=suggiss/jenkins-kaniko:$BUILD_NUMBER \
+              --destination=suggiss/jenkins-kaniko:latest
           '''
         }
       }
     }
 
-    stage('Update Deployment YAML') {
+    stage('Update K8s Manifests & Push') {
       steps {
         container('git') {
           git branch: 'main', credentialsId: 'github-credential', url: "${githubURL}"
-
           sh "git config --global --add safe.directory ${env.WORKSPACE}"
           sh "git config --global user.name '${githubUser}'"
           sh "git config --global user.email '${githubEmail}'"
-
-          // 🔁 이미지 태그 변경
-          sh "sed -i 's|image:.*|image: ${dockerhubId}/${dockerhubRepo}:${imageTag}|' deployment.yaml"
-
+          sh "sed -i 's|image:.*|image: ${dockerhubId}/${dockerhubRepo}:${BUILD_NUMBER}|' deployment.yaml"
           sh "git add deployment.yaml"
           sh "git commit -m 'Jenkins Build Number - ${BUILD_NUMBER}'"
-
           withCredentials([usernamePassword(credentialsId: 'github-credential', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
             sh "git push https://${GIT_USER}:${GIT_PASS}@github.com/${githubId}/${githubRepo}.git HEAD:main"
           }
         }
       }
     }
+  }
 
-    stage('Notify Slack') {
-      steps {
-        container('curl') {
-          withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
-            script {
-              def payload = """{
-                "text": ":rocket: *Jenkins 배포 완료!*\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${dockerhubId}/${dockerhubRepo}:${imageTag}"
-              }"""
-              writeFile file: 'payload.json', text: payload
+  post {
+    success {
+      container('curl') {
+        withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+          script {
+            def payload = """{
+              "text": ":rocket: Jenkins 빌드 및 배포 *성공*!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
+            }"""
+            writeFile file: 'payload.json', text: payload
+            sh 'apt update && apt install -y curl'
+            sh 'curl -X POST -H "Content-type: application/json" --data @payload.json "$SLACK_WEBHOOK"'
+          }
+        }
+      }
+    }
 
-              sh '''
-                set -xe
-                apt update && apt install -y curl
-                curl -s -o /dev/null -w "%{http_code}" \
-                  -X POST -H "Content-type: application/json" \
-                  --data @payload.json "$SLACK_WEBHOOK"
-              '''
-            }
+    failure {
+      container('curl') {
+        withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+          script {
+            def payload = """{
+              "text": ":x: Jenkins 빌드 또는 배포 *실패*!\\n*Build:* #${env.BUILD_NUMBER}\\n🔎 Jenkins 로그 확인 필요"
+            }"""
+            writeFile file: 'payload.json', text: payload
+            sh 'apt update && apt install -y curl'
+            sh 'curl -X POST -H "Content-type: application/json" --data @payload.json "$SLACK_WEBHOOK"'
           }
         }
       }
