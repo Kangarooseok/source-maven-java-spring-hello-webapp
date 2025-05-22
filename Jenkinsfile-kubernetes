@@ -41,9 +41,10 @@ spec:
     githubEmail = 'kms860926@gmail.com'
     githubId = 'Kangarooseok'
     githubRepo = 'jenkins-kubernetes'
-    githubURL = 'https://github.com/Kangarooseok/jenkins-kubernetes.git'
+    githubURL = "https://github.com/${githubId}/${githubRepo}.git"
     dockerhubId = 'suggiss'
     dockerhubRepo = 'jenkins-kaniko'
+    imageTag = "multi-${BUILD_NUMBER}" // 🔁 고유 태그 부여
   }
 
   stages {
@@ -71,31 +72,21 @@ spec:
       }
     }
 
-    // ✅ index.jsp 디버깅용 출력 추가
-    stage('Debug JSP') {
-      steps {
-        container('maven') {
-          sh 'echo "[index.jsp 내용 출력]:"'
-          sh 'cat src/main/webapp/WEB-INF/views/index.jsp || echo "index.jsp 파일 없음"'
-        }
-      }
-    }
-
-    stage('Build & Tag & Push Docker Image') {
+    stage('Build & Push Docker Image') {
       steps {
         container('kaniko') {
           sh '''
             /kaniko/executor \
               --dockerfile=Dockerfile \
               --context=dir://$WORKSPACE \
-              --destination=suggiss/jenkins-kaniko:$BUILD_NUMBER \
-              --destination=suggiss/jenkins-kaniko:latest
+              --destination=${dockerhubId}/${dockerhubRepo}:${imageTag} \
+              --destination=${dockerhubId}/${dockerhubRepo}:latest
           '''
         }
       }
     }
 
-    stage('Update K8s Manifests & Push') {
+    stage('Update Deployment YAML') {
       steps {
         container('git') {
           git branch: 'main', credentialsId: 'github-credential', url: "${githubURL}"
@@ -104,7 +95,9 @@ spec:
           sh "git config --global user.name '${githubUser}'"
           sh "git config --global user.email '${githubEmail}'"
 
-          sh "sed -i 's|image:.*|image: ${dockerhubId}/${dockerhubRepo}:${BUILD_NUMBER}|' deployment.yaml"
+          // 🔁 이미지 태그 변경
+          sh "sed -i 's|image:.*|image: ${dockerhubId}/${dockerhubRepo}:${imageTag}|' deployment.yaml"
+
           sh "git add deployment.yaml"
           sh "git commit -m 'Jenkins Build Number - ${BUILD_NUMBER}'"
 
@@ -121,15 +114,15 @@ spec:
           withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
             script {
               def payload = """{
-                "text": ":rocket: Jenkins 빌드 및 배포 완료!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
+                "text": ":rocket: *Jenkins 배포 완료!*\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${dockerhubId}/${dockerhubRepo}:${imageTag}"
               }"""
-              echo "Webhook env var length: ${SLACK_WEBHOOK.length()}"
               writeFile file: 'payload.json', text: payload
 
-              sh label: 'Send Slack message', script: '''
+              sh '''
                 set -xe
                 apt update && apt install -y curl
-                curl -v -X POST -H "Content-type: application/json" \
+                curl -s -o /dev/null -w "%{http_code}" \
+                  -X POST -H "Content-type: application/json" \
                   --data @payload.json "$SLACK_WEBHOOK"
               '''
             }
