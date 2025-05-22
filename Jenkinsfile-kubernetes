@@ -22,7 +22,7 @@ spec:
         - name: registry-credentials
           mountPath: /kaniko/.docker
     - name: curl
-      image: curlimages/curl:latest
+      image: debian:bullseye
       command: ["sleep"]
       args: ["infinity"]
   volumes:
@@ -55,15 +55,23 @@ spec:
       }
     }
 
-    stage('Build & Test') {
+    stage('Build') {
       steps {
         container('maven') {
-          sh 'mvn clean package'
+          sh 'mvn clean package -DskipTests=true'
         }
       }
     }
 
-    stage('Build & Push Docker Image') {
+    stage('Test') {
+      steps {
+        container('maven') {
+          sh 'mvn test'
+        }
+      }
+    }
+
+    stage('Build & Tag & Push Docker Image') {
       steps {
         container('kaniko') {
           sh '''
@@ -77,7 +85,7 @@ spec:
       }
     }
 
-    stage('Update Deployment & Push') {
+    stage('Update K8s Manifests & Push') {
       steps {
         container('git') {
           git branch: 'main', credentialsId: 'github-credential', url: "${githubURL}"
@@ -101,11 +109,10 @@ spec:
         withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
           script {
             def payload = """{
-              "text": ":white_check_mark: *CI/CD 성공 알림*\\n\
-*Build:* #${env.BUILD_NUMBER}\\n\
-*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
+              "text": ":rocket: Jenkins 빌드 및 배포 *성공*!\\n*Build:* #${env.BUILD_NUMBER}\\n*Image:* ${env.dockerhubId}/${env.dockerhubRepo}:${env.BUILD_NUMBER}"
             }"""
             writeFile file: 'payload.json', text: payload
+            sh 'apt update && apt install -y curl'
             sh 'curl -X POST -H "Content-type: application/json" --data @payload.json "$SLACK_WEBHOOK"'
           }
         }
@@ -117,11 +124,10 @@ spec:
         withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
           script {
             def payload = """{
-              "text": ":x: *CI/CD 실패 알림*\\n\
-*Build:* #${env.BUILD_NUMBER}\\n\
-🔍 Jenkins에서 로그 확인 필요"
+              "text": ":x: Jenkins 빌드 또는 배포 *실패*!\\n*Build:* #${env.BUILD_NUMBER}\\n🔎 Jenkins 로그 확인 필요"
             }"""
             writeFile file: 'payload.json', text: payload
+            sh 'apt update && apt install -y curl'
             sh 'curl -X POST -H "Content-type: application/json" --data @payload.json "$SLACK_WEBHOOK"'
           }
         }
@@ -129,4 +135,3 @@ spec:
     }
   }
 }
-
