@@ -9,7 +9,7 @@
     <h2>Today is 
       <fmt:formatDate value="${today}" pattern="yyyy-MM-dd" />
     </h2>
-    <h3>Version: 5.0</h3>
+    <h3>Version: 5.1</h3>
   </body>
 </html>
 
