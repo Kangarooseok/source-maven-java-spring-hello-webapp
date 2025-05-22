@@ -66,7 +66,7 @@ spec:
     stage('Test') {
       steps {
         container('maven') {
-          sh 'exit 1'
+          sh 'mvn test'
         }
       }
     }
