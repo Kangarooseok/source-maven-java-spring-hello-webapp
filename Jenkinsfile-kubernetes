@@ -71,6 +71,16 @@ spec:
       }
     }
 
+    // ✅ index.jsp 디버깅용 출력 추가
+    stage('Debug JSP') {
+      steps {
+        container('maven') {
+          sh 'echo "[index.jsp 내용 출력]:"'
+          sh 'cat src/main/webapp/WEB-INF/views/index.jsp || echo "index.jsp 파일 없음"'
+        }
+      }
+    }
+
     stage('Build & Tag & Push Docker Image') {
       steps {
         container('kaniko') {
