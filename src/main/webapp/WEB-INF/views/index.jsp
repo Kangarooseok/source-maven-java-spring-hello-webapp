@@ -2,14 +2,14 @@
 
 <html>
   <head>
-    <title>Hello World-indextest</title>
+    <title>CI/CD</title>
   </head>
   <body>
     <h1>${msg}</h1>
     <h2>Today is 
       <fmt:formatDate value="${today}" pattern="yyyy-MM-dd" />
     </h2>
-    <h3>Version: 5.1</h3>
+    <h3>Version: 6.0</h3>
   </body>
 </html>
 
