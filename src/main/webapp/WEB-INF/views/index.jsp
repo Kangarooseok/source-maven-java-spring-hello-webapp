@@ -5,11 +5,11 @@
     <title>CI/CD</title>
   </head>
   <body>
-    <h1>${msg}</h1>
+    <h1>CI/CD TEST</h1>
     <h2>Today is 
       <fmt:formatDate value="${today}" pattern="yyyy-MM-dd" />
     </h2>
-    <h3>Version: 6.3</h3>
+    <h3>Version: 6.4</h3>
   </body>
 </html>
 
